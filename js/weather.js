@@ -21,9 +21,9 @@ function getIcon(code, lg = false) {
     ? `https://openweathermap.org/img/wn/${code}${lg ? "@2x" : ""}.png`
     : "-";
 }
-function getOverlay(icon, name, temp) {
+function getOverlay(icon, name, temp, clsNm) {
   return `
-    <div class="map-overlay-warpper" >
+    <div class="map-overlay-warpper ${clsNm}">
       <div class="inner-wrap">
         <div class="icon-wp">
           <img src="${getIcon(icon)}" alt="지도날씨아이콘" class="map-icon" />
@@ -68,19 +68,29 @@ async function getWeather(lat, lon) {
 
 // 현재 위치 데이터
 function renderInfo() {
-  const { temp, feels_like, temp_max: max, temp_min: min, humidity, } = weathers.myData?.main || {};
+  const { temp, feels_like, temp_max, temp_min, humidity, } = weathers.myData?.main || {};
   const { description, icon } = weathers.myData?.weather?.[0] || "-";
   const info = document.querySelector(".info-wrapper");
   info.querySelector(".main-temp").innerText = temp || "-";
   info.querySelector(".feels-temp").innerText = feels_like || "-";
-  info.querySelector(".max-temp").innerText = max || "-";
-  info.querySelector(".min-temp").innerText = min || "-";
+  info.querySelector(".max-temp").innerText = temp_max || "-";
+  info.querySelector(".min-temp").innerText = temp_min || "-";
   info.querySelector(".humidity").innerText = humidity || "-";
   info.querySelector(".description").innerText = description || "-";
   info.querySelector(".weather-icon").src = getIcon(icon, true);
 }
 
-function initMap() {
+async function initInfo() {
+  const { lat, lon } = await getCoords(); // 나의 위치
+  weathers.myData = await getWeather(lat, lon);
+  renderInfo();
+}
+
+async function initMap() {
+  const pms = weathers.allData.map((city) => getWeather(city.lat, city.lon));
+  const values = await Promise.all(pms);
+  weathers.allData.forEach((city, idx) => (city.weather = values[idx]));
+
   const mapEl = document.getElementById("map");
   const mapOption = {
     center: new kakao.maps.LatLng(35.87143, 128.601445),
@@ -99,30 +109,21 @@ function initMap() {
     const marker = new kakaoKey.maps.marker({ Position });
     var Overlay = new kakao.maps.CustomOverlay({
       Position,
-      content: getOverlay(icon, city.name, temp),
-      xAnchor: 0.3,
-      yAnchor: 0.91,
+      content: getOverlay(icon, city.name, temp, city.clsNm),
+      xAnchor: 0,
+      yAnchor: 0,
     });
     marker.setMap(map);
     Overlay.setMap(map);
   });
 }
-async function initInfo() {
-  const { lat, lon } = await getCoords(); //나의 위치
-  weathers.myData = await getWeather(lat, lon);
-  renderInfo();
-}
 
-async function initMap() {
-  const pms = weathers.allData.map((item) => getWeather(item.lat, item.lon));
-  const values = await Promise.all(pms);
-  weathers.allData.forEach((city, idx) => (city.weather = values[idx]));
 
 async function init() {
-  initInfo()
-  initMap()
+  initInfo();
+  initMap();
 }
-}
+
 
 //전국 데이터
 
